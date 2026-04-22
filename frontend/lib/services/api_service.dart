@@ -8,7 +8,7 @@ class ApiService {
 
   static Future<Map<String, dynamic>?> analyzeReceipt(File image) async {
     try {
-      final request = http.MultipartRequest('POST', Uri.parse('$_base/upload'));
+      final request = http.MultipartRequest('POST', Uri.parse('$_base/analyze'));
       request.files.add(await http.MultipartFile.fromPath('file', image.path));
       final response = await request.send();
       final body = await response.stream.bytesToString();
