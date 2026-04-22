@@ -1,7 +1,7 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 import json
 import os
 import uuid
@@ -11,17 +11,14 @@ from supabase import create_client, Client # <-- 1. Import Supabase
 
 load_dotenv()
 
-# Configure AI
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-model = genai.GenerativeModel(
-    'gemini-2.5-flash',
-    generation_config={"response_mime_type": "application/json"}
-)
+# Configure AI (Updated to the new google.genai SDK)
+client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
 # 2. Configure Database
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# print("Supabase client initialized successfully.")
 
 app = FastAPI(title="TSRE API")
 
@@ -41,10 +38,12 @@ async def analyze_receipt(file: UploadFile = File(...)):
 
     try:
         image_bytes = await file.read()
-        image_part = {
-            "mime_type": file.content_type,
-            "data": image_bytes
-        }
+        
+        # Updated to use the new types.Part format for images
+        image_part = types.Part.from_bytes(
+            data=image_bytes, 
+            mime_type=file.content_type
+        )
 
         # The Master Prompt
         prompt = """
@@ -74,8 +73,21 @@ async def analyze_receipt(file: UploadFile = File(...)):
         Rule reminder: If total_amount >= 10000, status must be DANGER.
         """
 
-        response = model.generate_content([prompt, image_part])
-        result_json = json.loads(response.text)
+        # Updated to use the new client.models.generate_content call
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=[prompt, image_part],
+            config=types.GenerateContentConfig(response_mime_type="application/json")
+        )
+        
+        # Clean the Markdown formatting just in case Gemini sends it
+        raw_text = response.text.strip()
+        if raw_text.startswith("```json"):
+            raw_text = raw_text.replace("```json", "").replace("```", "").strip()
+        elif raw_text.startswith("```"):
+            raw_text = raw_text.replace("```", "").strip()
+
+        result_json = json.loads(raw_text)
         
         # 3. Generate a secure ID and add the timestamp
         result_json["transaction_id"] = str(uuid.uuid4())
