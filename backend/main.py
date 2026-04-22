@@ -1,3 +1,4 @@
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -24,6 +25,14 @@ SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 app = FastAPI(title="TSRE API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all connections (perfect for hackathon testing)
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows POST, GET, OPTIONS, etc.
+    allow_headers=["*"],
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -88,3 +97,17 @@ async def analyze_receipt(file: UploadFile = File(...)):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"System Error: {str(e)}")
+    
+@app.get("/logs")
+async def get_audit_history():
+    try:
+        # Fetch the latest 50 receipts from Supabase, newest first
+        response = supabase.table("transaction_logs").select("*").order("created_at", desc=True).limit(50).execute()
+        
+        return {
+            "status": "success", 
+            "count": len(response.data),
+            "data": response.data
+        }
+    except Exception as e:
+        return {"status": "error", "message": f"Database Error: {str(e)}"}
