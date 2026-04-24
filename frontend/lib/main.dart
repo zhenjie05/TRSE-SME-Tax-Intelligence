@@ -59,7 +59,7 @@ class MainLayout extends StatefulWidget {
 }
 
 class _MainLayoutState extends State<MainLayout> {
-  int _selectedIndex = 2; // Default to Upload tab
+  int _selectedIndex = 0; 
 
   // ── THE RESPONSIVE MAGIC HAPPENS HERE ──
   final List<Widget> _screens = const [
