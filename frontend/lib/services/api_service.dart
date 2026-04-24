@@ -84,4 +84,67 @@ class ApiService {
       }
     }
   }
+
+  // Dynamic Tax Calculation Endpoint
+  static Future<double> calculateTaxes(double annualIncome) async {
+    if (useMockData) {
+      await Future.delayed(const Duration(milliseconds: 800));
+      // Basic mock Malaysian tax bracket calculation
+      if (annualIncome <= 35000) return 0;
+      if (annualIncome <= 100000) return annualIncome * 0.11;
+      return annualIncome * 0.24; 
+    } else {
+      // Future backend connection
+      // var response = await http.post('$_base/calculate_tax', body: {'income': annualIncome});
+      return 0.0;
+    }
+  }
+
+  // Dynamic Tax Tips Endpoint
+  static Future<List<String>> getDashboardTips() async {
+    if (useMockData) {
+      await Future.delayed(const Duration(seconds: 1));
+      return [
+        "E-Invoicing becomes mandatory for all taxpayers by July 2026.",
+        "Ensure all capital expenditures above RM10,000 have verified TINs.",
+        "Consider consolidating monthly utility bills under the e-Invoice exemption rule."
+      ];
+    } else {
+      // var response = await http.get('$_base/tips');
+      return [];
+    }
+  }
+
+  // NEW: Chat Endpoint
+  static Future<String> sendChatMessage(String message, Map<String, dynamic>? contextData) async {
+    if (useMockData) {
+      await Future.delayed(const Duration(seconds: 1));
+      
+      // Mock response generation based on whether context was provided
+      if (contextData != null && contextData.isNotEmpty) {
+        final status = contextData['status'] ?? 'unknown';
+        return "I can see you are asking about your $status receipt. How can I help clarify the LHDN rules regarding this specific transaction?";
+      } else {
+        return "I am the TSRE AI Assistant. I can help answer questions about LHDN 2026 E-Invoicing rules and compliance. What do you need help with?";
+      }
+    } else {
+      try {
+        var response = await http.post(
+          Uri.parse('$_base/chat'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'message': message,
+            'context': contextData, // Pass the analysis result as context
+          }),
+        );
+        if (response.statusCode == 200) {
+          return json.decode(response.body)['response'];
+        }
+        return "Sorry, I couldn't reach the AI engine.";
+      } catch (e) {
+        return "Connection error. Please try again.";
+      }
+    }
+  }
 }
+

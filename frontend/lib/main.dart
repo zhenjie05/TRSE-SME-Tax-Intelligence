@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'responsive_layout.dart'; // Your helper!
+import 'responsive_layout.dart';
 
 // Mobile Imports
 import 'screens/upload_screen.dart';
@@ -15,6 +15,8 @@ import 'screens/upload_web.dart';
 import 'screens/history_web.dart';
 import 'screens/result_web.dart';
 import 'screens/settings_web.dart';
+import 'screens/chat_screen.dart';
+import 'screens/chat_web.dart';
 
 void main() {
   runApp(const TSREApp());
@@ -41,6 +43,10 @@ class TSREApp extends StatelessWidget {
               mobileView: ResultScreen(),
               webView: ResultWeb(),
             ),
+        '/chat': (context) => const ResponsiveLayout(
+              mobileView: ChatScreen(),
+              webView: ChatWeb(),
+            )
       },
     );
   }

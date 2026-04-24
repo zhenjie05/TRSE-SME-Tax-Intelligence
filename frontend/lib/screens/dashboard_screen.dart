@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
+import '../widget/chatbar.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -12,11 +13,31 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   static const Color kNavy = Color(0xFF002753);
   late Future<List<dynamic>?> _historyFuture;
+  late Future<List<String>> _tipsFuture;
+
+  final TextEditingController _incomeController = TextEditingController();
+  double _taxDue = 0.0;
+  bool _isCalculatingTax = false;
 
   @override
   void initState() {
     super.initState();
     _historyFuture = ApiService.fetchAuditHistory();
+    _tipsFuture = ApiService.getDashboardTips();
+  }
+
+  Future<void> _calculateTax(String value) async {
+    if (value.isEmpty) {
+      setState(() => _taxDue = 0.0);
+      return;
+    }
+    setState(() => _isCalculatingTax = true);
+    double income = double.tryParse(value) ?? 0.0;
+    double tax = await ApiService.calculateTaxes(income);
+    setState(() {
+      _taxDue = tax;
+      _isCalculatingTax = false;
+    });
   }
 
   @override
@@ -24,136 +45,115 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return FutureBuilder<List<dynamic>?>(
       future: _historyFuture,
       builder: (context, snapshot) {
-        // ── Derive stats from real/mock data ──────────────────
         final logs = snapshot.data ?? [];
-        final total  = logs.length;
-        final safe   = logs.where((l) => l['status'] == 'SAFE').length;
+        final total = logs.length;
+        final safe = logs.where((l) => l['status'] == 'SAFE').length;
         final review = logs.where((l) => l['status'] == 'REVIEW').length;
         final danger = logs.where((l) => l['status'] == 'DANGER').length;
-        final totalFine = logs.fold<double>(
-          0.0, (sum, l) => sum + ((l['total_amount'] ?? 0) as num).toDouble()
-              * (l['status'] == 'DANGER' ? 0.24 : 0)); // estimated 24% fine exposure
+        
+        // Document Health Monitor logic
+        double healthScore = total == 0 ? 100 : ((safe / total) * 100);
 
         return RefreshIndicator(
           onRefresh: () async {
-            setState(() => _historyFuture = ApiService.fetchAuditHistory());
+            setState(() {
+              _historyFuture = ApiService.fetchAuditHistory();
+              _tipsFuture = ApiService.getDashboardTips();
+            });
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(24),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Dashboard', style: GoogleFonts.publicSans(fontSize: 28, fontWeight: FontWeight.bold, color: kNavy)),
+              const SizedBox(height: 16),
+              
+              // 1. AI Chatbox
+              const ChatBar(),
+              const SizedBox(height: 24),
 
-              // ── Header ────────────────────────────────────────
-              Text('Dashboard',
-                  style: GoogleFonts.publicSans(
-                      fontSize: 28, fontWeight: FontWeight.bold, color: kNavy)),
-              const SizedBox(height: 4),
-              Text(
-                snapshot.connectionState == ConnectionState.waiting
-                    ? 'Loading your compliance overview...'
-                    : 'Showing data from $total scanned receipts',
-                style: const TextStyle(color: Color(0xFF44617D), fontSize: 13),
+              // 2. Annual Income & Tax to be Paid
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Estimated Taxes', style: GoogleFonts.publicSans(fontSize: 16, fontWeight: FontWeight.bold, color: kNavy)),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _incomeController,
+                    keyboardType: TextInputType.number,
+                    onChanged: _calculateTax,
+                    decoration: InputDecoration(
+                      labelText: 'Enter Annual Income (RM)',
+                      prefixIcon: const Icon(Icons.attach_money),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    const Text('Current Taxes to be Paid:', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500)),
+                    _isCalculatingTax 
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      : Text('RM ${_taxDue.toStringAsFixed(2)}', style: GoogleFonts.publicSans(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.red.shade700)),
+                  ])
+                ]),
               ),
               const SizedBox(height: 24),
 
-              // ── Loading State ─────────────────────────────────
-              if (snapshot.connectionState == ConnectionState.waiting)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 60),
-                    child: CircularProgressIndicator(),
-                  ),
-                )
-              else ...[
-
-                // ── Stat Cards ────────────────────────────────
-                Row(children: [
-                  _statCard('Total Scanned', '$total',
-                      Icons.receipt_long, Colors.blue),
-                  const SizedBox(width: 12),
-                  _statCard('Safe', '$safe',
-                      Icons.check_circle, Colors.green),
-                ]),
-                const SizedBox(height: 12),
-                Row(children: [
-                  _statCard('Review', '$review',
-                      Icons.warning_amber, Colors.orange),
-                  const SizedBox(width: 12),
-                  _statCard('Danger', '$danger',
-                      Icons.dangerous, Colors.red),
-                ]),
-                const SizedBox(height: 24),
-
-                // ── Fine Exposure Banner ───────────────────────
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(22),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF002753), Color(0xFF1565C0)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                          color: kNavy.withOpacity(0.3),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8))
-                    ],
-                  ),
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                    Row(children: [
-                      const Icon(Icons.warning_amber,
-                          color: Colors.amber, size: 18),
-                      const SizedBox(width: 8),
-                      Text('ESTIMATED FINE EXPOSURE',
-                          style: GoogleFonts.publicSans(
-                              color: Colors.white70,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5)),
-                    ]),
-                    const SizedBox(height: 10),
-                    Text(
-                      'RM ${totalFine.toStringAsFixed(2)}',
-                      style: GoogleFonts.publicSans(
-                          fontSize: 34,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Across $danger DANGER receipt${danger == 1 ? '' : 's'}',
-                      style: const TextStyle(
-                          color: Colors.white70, fontSize: 12),
-                    ),
-                  ]),
+              // 3. Document Health Monitor & Risk Score
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: healthScore > 70 ? [Colors.green.shade700, Colors.green.shade500] : [Colors.orange.shade700, Colors.orange.shade500]),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                const SizedBox(height: 24),
+                child: Row(children: [
+                  const Icon(Icons.health_and_safety, color: Colors.white, size: 40),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('Document Health Monitor', style: GoogleFonts.publicSans(color: Colors.white70, fontWeight: FontWeight.bold)),
+                      Text('${healthScore.toStringAsFixed(0)}% Safe', style: GoogleFonts.publicSans(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+                    ]),
+                  ),
+                ]),
+              ),
+              const SizedBox(height: 24),
 
-                // ── Recent Activity ────────────────────────────
-                Text('Recent Activity',
-                    style: GoogleFonts.publicSans(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: kNavy)),
-                const SizedBox(height: 12),
+              // 4. AI Recommended Tax Tips
+              Text('AI Recommended Tax Tips', style: GoogleFonts.publicSans(fontSize: 16, fontWeight: FontWeight.bold, color: kNavy)),
+              const SizedBox(height: 12),
+              FutureBuilder<List<String>>(
+                future: _tipsFuture,
+                builder: (context, tipSnapshot) {
+                  if (tipSnapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+                  final tips = tipSnapshot.data ?? [];
+                  return Column(
+                    children: tips.map((tip) => Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.amber.shade200)),
+                      child: Row(children: [
+                        const Icon(Icons.lightbulb, color: Colors.amber, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text(tip, style: const TextStyle(fontSize: 13, height: 1.4))),
+                      ]),
+                    )).toList(),
+                  );
+                }
+              ),
+              const SizedBox(height: 24),
 
-                if (logs.isEmpty)
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 24),
-                      child: Text('No receipts scanned yet.',
-                          style: TextStyle(color: Colors.grey)),
-                    ),
-                  )
-                else
-                  ...logs.take(3).map((log) => _activityTile(log)),
-              ],
-              const SizedBox(height: 40),
+              // Existing Recent Activity
+              Text('Recent Activity', style: GoogleFonts.publicSans(fontSize: 16, fontWeight: FontWeight.bold, color: kNavy)),
+              const SizedBox(height: 12),
+              if (logs.isEmpty) const Text('No receipts scanned yet.', style: TextStyle(color: Colors.grey))
+              else ...logs.take(3).map((log) => _activityTile(log)),
             ]),
           ),
         );
@@ -161,100 +161,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _statCard(
-      String label, String value, IconData icon, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade100),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withOpacity(0.03), blurRadius: 10)
-          ],
-        ),
-        child: Row(children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10)),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(value,
-                style: GoogleFonts.publicSans(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: kNavy)),
-            Text(label,
-                style:
-                    const TextStyle(fontSize: 11, color: Colors.grey)),
-          ]),
-        ]),
-      ),
-    );
-  }
-
   Widget _activityTile(Map<String, dynamic> log) {
     final status = log['status'] ?? 'UNKNOWN';
-    Color statusColor = Colors.grey;
-    if (status == 'SAFE')   statusColor = Colors.green;
-    if (status == 'REVIEW') statusColor = Colors.orange;
-    if (status == 'DANGER') statusColor = Colors.red;
-
+    Color statusColor = status == 'SAFE' ? Colors.green : (status == 'REVIEW' ? Colors.orange : Colors.red);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade100),
-      ),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade100)),
       child: Row(children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10)),
-          child: Icon(Icons.receipt_long, color: statusColor, size: 20),
-        ),
+        Icon(Icons.receipt_long, color: statusColor, size: 24),
         const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-            Text(log['merchant_name'] ?? 'Unknown',
-                style: const TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 13)),
-            Text('Risk Score: ${log['risk_score'] ?? 0}',
-                style:
-                    const TextStyle(fontSize: 11, color: Colors.grey)),
-          ]),
-        ),
-        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          Text(
-            'RM ${(log['total_amount'] ?? 0).toStringAsFixed(2)}',
-            style: const TextStyle(
-                fontWeight: FontWeight.bold, fontSize: 13),
-          ),
-          Container(
-            margin: const EdgeInsets.only(top: 4),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6)),
-            child: Text(status,
-                style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: statusColor)),
-          ),
-        ]),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(log['merchant_name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          Text('Risk Score: ${log['risk_score'] ?? 0}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+        ])),
+        Text('RM ${(log['total_amount'] ?? 0).toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
       ]),
     );
   }
