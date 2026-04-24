@@ -1,27 +1,41 @@
+import 'package:http_parser/http_parser.dart';
 import 'dart:convert';
-import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 
 class ApiService {
-  // Change to your Cloud Run URL when deployed
-  static const String _base = 'http://10.0.2.2:8000';
+  static const String _base = 'http://127.0.0.1:8000';
 
-  static Future<Map<String, dynamic>?> analyzeReceipt(File image) async {
+  static Future<Map<String, dynamic>?> analyzeReceipt(XFile imageFile) async {
     try {
-      final request = http.MultipartRequest('POST', Uri.parse('$_base/upload'));
-      request.files.add(await http.MultipartFile.fromPath('file', image.path));
-      final response = await request.send();
-      final body = await response.stream.bytesToString();
-      return jsonDecode(body);
+      var request = http.MultipartRequest('POST', Uri.parse('$_base/upload'));
+      var bytes = await imageFile.readAsBytes();
+      request.files.add(http.MultipartFile.fromBytes(
+        'file', bytes,
+        filename: imageFile.name.isNotEmpty ? imageFile.name : 'receipt.jpg',
+        contentType: MediaType('image', 'jpeg'),
+      ));
+      var response = await request.send();
+      if (response.statusCode == 200) {
+        var body = await response.stream.bytesToString();
+        return json.decode(body);
+      }
+      return null;
     } catch (e) {
+      print("API Error: $e");
       return null;
     }
   }
 
-  static Future<Map<String, dynamic>?> chat(String message, String sessionId) async {
-    final res = await http.post(Uri.parse('$_base/chat'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'message': message, 'session_id': sessionId}));
-    return jsonDecode(res.body);
+  static Future<List<dynamic>?> fetchAuditHistory() async {
+    try {
+      var response = await http.get(Uri.parse('$_base/logs'));
+      if (response.statusCode == 200) {
+        return json.decode(response.body)['data'];
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
   }
 }
