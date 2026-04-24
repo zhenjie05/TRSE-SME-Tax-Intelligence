@@ -1,10 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'responsive_layout.dart'; // Your helper!
+
+// Mobile Imports
 import 'screens/upload_screen.dart';
 import 'screens/result_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/settings_screen.dart';
+
+// Web Imports
+import 'screens/dashboard_web.dart';
+import 'screens/upload_web.dart';
+import 'screens/history_web.dart';
+import 'screens/result_web.dart';
+import 'screens/settings_web.dart';
 
 void main() {
   runApp(const TSREApp());
@@ -20,18 +30,17 @@ class TSREApp extends StatelessWidget {
       title: 'TSRE',
       theme: ThemeData(
         useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF002753),
-          primary: const Color(0xFF002753),
-          secondary: const Color(0xFF44617D),
-          surface: const Color(0xFFF6FAFE),
-        ),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF002753), surface: const Color(0xFFF6FAFE)),
         textTheme: GoogleFonts.publicSansTextTheme(),
       ),
       initialRoute: '/',
       routes: {
         '/': (context) => const MainLayout(),
-        '/result': (context) => const ResultScreen(),
+        // Result Screen is also responsive!
+        '/result': (context) => const ResponsiveLayout(
+              mobileView: ResultScreen(),
+              webView: ResultWeb(),
+            ),
       },
     );
   }
@@ -39,87 +48,72 @@ class TSREApp extends StatelessWidget {
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
-
   @override
   State<MainLayout> createState() => _MainLayoutState();
 }
 
 class _MainLayoutState extends State<MainLayout> {
-  int _selectedIndex = 2; // default to Upload tab
+  int _selectedIndex = 2; // Default to Upload tab
 
+  // ── THE RESPONSIVE MAGIC HAPPENS HERE ──
   final List<Widget> _screens = const [
-    DashboardScreen(),
-    HistoryScreen(),
-    UploadScreen(),
-    SettingsScreen(),
+    ResponsiveLayout(mobileView: DashboardScreen(), webView: DashboardWeb()),
+    ResponsiveLayout(mobileView: HistoryScreen(),   webView: HistoryWeb()),
+    ResponsiveLayout(mobileView: UploadScreen(),    webView: UploadWeb()),
+    ResponsiveLayout(mobileView: SettingsScreen(),  webView: SettingsWeb()),
   ];
 
   @override
   Widget build(BuildContext context) {
+    // Determine if we are on a wide Web screen to show the Side Navigation Rail
+    // Or a narrow Mobile screen to show the Bottom Navigation Bar
+    final isWeb = MediaQuery.of(context).size.width > 600;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF6FAFE),
       appBar: AppBar(
         backgroundColor: Colors.white,
-        elevation: 0,
         title: Row(children: [
           const Icon(Icons.account_balance, color: Color(0xFF002753)),
           const SizedBox(width: 12),
-          Text('TSRE',
-              style: GoogleFonts.publicSans(
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF002753),
-                  fontSize: 20)),
+          Text('TSRE Web', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold, color: const Color(0xFF002753))),
         ]),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: CircleAvatar(
-              radius: 16,
-              backgroundColor: Colors.grey[200],
-              backgroundImage: const NetworkImage(
-                  'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=100'),
-            ),
-          ),
+      ),
+      
+      // If Web, use Row for Side Menu. If Mobile, just show the screen.
+      body: isWeb 
+        ? Row(
+            children: [
+              NavigationRail(
+                selectedIndex: _selectedIndex,
+                onDestinationSelected: (i) => setState(() => _selectedIndex = i),
+                labelType: NavigationRailLabelType.all,
+                backgroundColor: Colors.white,
+                destinations: const [
+                  NavigationRailDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: Text('Dashboard')),
+                  NavigationRailDestination(icon: Icon(Icons.history_outlined), selectedIcon: Icon(Icons.history), label: Text('History')),
+                  NavigationRailDestination(icon: Icon(Icons.cloud_upload_outlined), selectedIcon: Icon(Icons.cloud_upload), label: Text('Upload')),
+                  NavigationRailDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: Text('Settings')),
+                ],
+              ),
+              const VerticalDivider(thickness: 1, width: 1),
+              // Expanded fills the rest of the screen with the selected Web View
+              Expanded(child: _screens[_selectedIndex]), 
+            ],
+          )
+        : _screens[_selectedIndex], // Mobile just displays the screen directly
+
+      // If Mobile, show Bottom Navigation. If Web, hide it (return null).
+      bottomNavigationBar: isWeb ? null : NavigationBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: (i) => setState(() => _selectedIndex = i),
+        backgroundColor: Colors.white,
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
+          NavigationDestination(icon: Icon(Icons.history_outlined), label: 'History'),
+          NavigationDestination(icon: Icon(Icons.cloud_upload_outlined), label: 'Upload'),
+          NavigationDestination(icon: Icon(Icons.settings_outlined), label: 'Settings'),
         ],
-      ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 250),
-        child: _screens[_selectedIndex],
-      ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withOpacity(0.06),
-                blurRadius: 20,
-                offset: const Offset(0, -4)),
-          ],
-        ),
-        child: NavigationBar(
-          selectedIndex: _selectedIndex,
-          onDestinationSelected: (i) => setState(() => _selectedIndex = i),
-          backgroundColor: Colors.white,
-          indicatorColor: const Color(0xFF002753).withOpacity(0.1),
-          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-          destinations: const [
-            NavigationDestination(
-                icon: Icon(Icons.dashboard_outlined),
-                selectedIcon: Icon(Icons.dashboard, color: Color(0xFF002753)),
-                label: 'Dashboard'),
-            NavigationDestination(
-                icon: Icon(Icons.history_outlined),
-                selectedIcon: Icon(Icons.history, color: Color(0xFF002753)),
-                label: 'History'),
-            NavigationDestination(
-                icon: Icon(Icons.cloud_upload_outlined),
-                selectedIcon: Icon(Icons.cloud_upload, color: Color(0xFF002753)),
-                label: 'Upload'),
-            NavigationDestination(
-                icon: Icon(Icons.settings_outlined),
-                selectedIcon: Icon(Icons.settings, color: Color(0xFF002753)),
-                label: 'Settings'),
-          ],
-        ),
       ),
     );
   }

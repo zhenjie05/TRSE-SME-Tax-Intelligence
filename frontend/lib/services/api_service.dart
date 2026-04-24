@@ -49,11 +49,6 @@ class ApiService {
     }  
   } 
 
-  // static Future<List<dynamic>?> fetchAuditHistory() async {
-
-  //mock API response for testing without backend
-
-
   static Future<List<dynamic>?> fetchAuditHistory() async {
     if(useMockData) {
       await Future.delayed(const Duration(seconds: 1));
