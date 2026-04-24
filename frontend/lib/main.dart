@@ -4,6 +4,7 @@ import 'screens/upload_screen.dart';
 import 'screens/result_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/dashboard_screen.dart';
+import 'screens/settings_screen.dart';
 
 void main() {
   runApp(const TSREApp());
@@ -50,6 +51,7 @@ class _MainLayoutState extends State<MainLayout> {
     DashboardScreen(),
     HistoryScreen(),
     UploadScreen(),
+    SettingsScreen(),
   ];
 
   @override
@@ -112,6 +114,10 @@ class _MainLayoutState extends State<MainLayout> {
                 icon: Icon(Icons.cloud_upload_outlined),
                 selectedIcon: Icon(Icons.cloud_upload, color: Color(0xFF002753)),
                 label: 'Upload'),
+            NavigationDestination(
+                icon: Icon(Icons.settings_outlined),
+                selectedIcon: Icon(Icons.settings, color: Color(0xFF002753)),
+                label: 'Settings'),
           ],
         ),
       ),
