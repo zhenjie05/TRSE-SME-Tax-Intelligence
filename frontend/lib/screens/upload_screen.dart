@@ -16,9 +16,19 @@ class UploadScreen extends StatefulWidget {
 class _UploadScreenState extends State<UploadScreen> {
   XFile? _selectedImage;
   bool _isLoading = false;
+  
+  // Create a Future variable to hold our history data
+  late Future<List<dynamic>?> _recentUploadsFuture;
 
   static const Color kNavy = Color(0xFF002753);
   static const Color kNavyLight = Color(0xFF44617D);
+
+  @override
+  void initState() {
+    super.initState();
+    // Fetch the data from the API (or mock data) when the screen loads
+    _recentUploadsFuture = ApiService.fetchAuditHistory();
+  }
 
   // ── Pickers ───────────────────────────────────────────────────
   Future<void> _pickFromCamera() async {
@@ -85,17 +95,39 @@ class _UploadScreenState extends State<UploadScreen> {
           const SizedBox(height: 32),
           _buildRecentUploadsHeader(),
           const SizedBox(height: 12),
-          _RecentItem(
-            title: 'INV-2026-089.pdf',
-            subtitle: 'Today, 2:45 PM • 1.2 MB',
-            status: 'PROCESSING',
+          
+          // Dynamically load Recent Items using the API Service
+          FutureBuilder<List<dynamic>?>(
+            future: _recentUploadsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              } else if (snapshot.hasError || snapshot.data == null || snapshot.data!.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text('No recent uploads found.', style: TextStyle(color: Colors.grey)),
+                );
+              }
+
+              // Take only the top 3 items for the dashboard preview
+              final items = snapshot.data!.take(3).toList();
+
+              return Column(
+                children: items.map((item) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _RecentItem(
+                      // Map the JSON keys to the UI
+                      title: item['merchant_name'] ?? 'Unknown Merchant',
+                      subtitle: 'RM ${item['total_amount']?.toString() ?? '0.00'} • Risk Score: ${item['risk_score'] ?? 0}',
+                      status: item['status'] ?? 'PROCESSING',
+                    ),
+                  );
+                }).toList(),
+              );
+            },
           ),
-          const SizedBox(height: 10),
-          _RecentItem(
-            title: 'Office_Supplies_Aug.jpg',
-            subtitle: 'Yesterday • 840 KB',
-            status: 'SAFE',
-          ),
+
           const SizedBox(height: 32),
           _buildComplianceCard(),
           const SizedBox(height: 40),

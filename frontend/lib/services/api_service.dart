@@ -5,87 +5,88 @@ import 'package:image_picker/image_picker.dart';
 
 class ApiService {
   static const String _base = 'http://127.0.0.1:8000';
-
-  //mock API response for testing without backend
-  // static Future<Map<String, dynamic>?> analyzeReceipt(XFile imageFile) async {
-  //   // 1. Simulate a network delay so you can see the loading spinner
-  //   await Future.delayed(const Duration(seconds: 2));
-
-  //   // 2. Return a MOCK DANGER response to test the Red UI
-  //   return {
-  //     "status": "DANGER",
-  //     "risk_score": 92,
-  //     "confidence_level": 0.95,
-  //     "extracted_data": {
-  //       "merchant_name": "Mega Tech Supplies Sdn Bhd",
-  //       "tin": "NOT_FOUND",
-  //       "total_amount": 14500.00,
-  //       "tax_amount": 870.00,
-  //       "date": "2026-04-20",
-  //       "currency": "MYR"
-  //     },
-  //     "ai_explanation": "This invoice exceeds the RM10,000 threshold but lacks a valid Tax Identification Number (TIN). E-Invoicing is strictly mandatory for transactions of this size under the 2026 guidelines.",
-  //     "lhdn_reference": "LHDN E-Invoice Guideline v3.0, Section 4.1 (Mandatory Issuance)",
-  //     "action_recommendation": "Do NOT process payment. Request a formal LHDN-validated e-Invoice from the supplier immediately.",
-  //     "impact_saved": 3480.00
-  //   };
-  // }
-
-  // static Future<List<dynamic>?> fetchAuditHistory() async {
-  //   await Future.delayed(const Duration(seconds: 1));
-  //   return [
-  //     {
-  //       "status": "DANGER",
-  //       "merchant_name": "Tech Corp Server Hosting",
-  //       "risk_score": 88,
-  //       "total_amount": 12500.00
-  //     },
-  //     {
-  //       "status": "SAFE",
-  //       "merchant_name": "Office Supplies Co",
-  //       "risk_score": 12,
-  //       "total_amount": 450.00
-  //     },
-  //     {
-  //       "status": "REVIEW",
-  //       "merchant_name": "Client Lunch - Ali Cafe",
-  //       "risk_score": 55,
-  //       "total_amount": 120.50
-  //     }
-  //   ];
-  // }
-  //mock API response for testing without backend
+  static const bool useMockData = true; // FLIP THIS TO FALSE WHEN BACKEND IS READY
 
   static Future<Map<String, dynamic>?> analyzeReceipt(XFile imageFile) async {
-    try {
-      var request = http.MultipartRequest('POST', Uri.parse('$_base/upload'));
-      var bytes = await imageFile.readAsBytes();
-      request.files.add(http.MultipartFile.fromBytes(
-        'file', bytes,
-        filename: imageFile.name.isNotEmpty ? imageFile.name : 'receipt.jpg',
-        contentType: MediaType('image', 'jpeg'),
-      ));
-      var response = await request.send();
-      if (response.statusCode == 200) {
-        var body = await response.stream.bytesToString();
-        return json.decode(body);
-      }
-      return null;
-    } catch (e) {
-      print("API Error: $e");
-      return null;
-    }
-  }
+    if(useMockData) {
+      await Future.delayed(const Duration(seconds: 2));
+      return {
+        "status": "DANGER",
+        "risk_score": 92,
+        "confidence_level": 0.95,
+        "extracted_data": {
+          "merchant_name": "Mega Tech Supplies Sdn Bhd",
+          "tin": "NOT_FOUND",
+          "total_amount": 14500.00,
+          "tax_amount": 870.00,
+          "date": "2026-04-20",
+          "currency": "MYR"
+        },
+        "ai_explanation": "This invoice exceeds the RM10,000 threshold but lacks a valid Tax Identification Number (TIN). E-Invoicing is strictly mandatory for transactions of this size under the 2026 guidelines.",
+        "lhdn_reference": "LHDN E-Invoice Guideline v3.0, Section 4.1 (Mandatory Issuance)",
+        "action_recommendation": "Do NOT process payment. Request a formal LHDN-validated e-Invoice from the supplier immediately.",
+        "impact_saved": 3480.00
+      };
+    } else {
+      try {
+        var request = http.MultipartRequest('POST', Uri.parse('$_base/upload'));
+        var bytes = await imageFile.readAsBytes();
+        request.files.add(http.MultipartFile.fromBytes(
+          'file', bytes,
+          filename: imageFile.name.isNotEmpty ? imageFile.name : 'receipt.jpg',
+          contentType: MediaType('image', 'jpeg'),
+        ));
+        var response = await request.send();
+        if (response.statusCode == 200) {
+          var body = await response.stream.bytesToString();
+          return json.decode(body);
+        }
+        return null;
+      } catch (e) {
+        print("API Error: $e");
+        return null;
+      }     
+    }  
+  } 
+
+  // static Future<List<dynamic>?> fetchAuditHistory() async {
+
+  //mock API response for testing without backend
+
 
   static Future<List<dynamic>?> fetchAuditHistory() async {
-    try {
-      var response = await http.get(Uri.parse('$_base/logs'));
-      if (response.statusCode == 200) {
-        return json.decode(response.body)['data'];
+    if(useMockData) {
+      await Future.delayed(const Duration(seconds: 1));
+      return [
+        {
+          "status": "DANGER",
+          "merchant_name": "Tech Corp Server Hosting",
+          "risk_score": 88,
+          "total_amount": 12500.00
+        },
+        {
+          "status": "SAFE",
+          "merchant_name": "Office Supplies Co",
+          "risk_score": 12,
+          "total_amount": 450.00
+        },
+        {
+          "status": "REVIEW",
+          "merchant_name": "Client Lunch - Ali Cafe",
+          "risk_score": 55,
+          "total_amount": 120.50
+        }
+      ];
+    } else {
+      try {
+        var response = await http.get(Uri.parse('$_base/logs'));
+        if (response.statusCode == 200) {
+          return json.decode(response.body)['data'];
+        }
+        return null;
+      } catch (e) {
+        return null;
       }
-      return null;
-    } catch (e) {
-      return null;
     }
   }
 }
