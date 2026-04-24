@@ -2,10 +2,53 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../widget/chatbar.dart';
 
-class ResultScreen extends StatelessWidget {
+class ResultScreen extends StatefulWidget {
   const ResultScreen({super.key});
 
+  @override
+  State<ResultScreen> createState() => _ResultScreenState();
+}
+
+class _ResultScreenState extends State<ResultScreen> {
   static const Color kNavy = Color(0xFF002753);
+  
+  // State variables to hold manual updates
+  String? _manualTin;
+  String? _localStatus;
+
+  void _showTinDialog() {
+    final TextEditingController tc = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Enter TIN Manually'),
+        content: TextField(
+          controller: tc,
+          decoration: const InputDecoration(
+            labelText: 'Tax Identification Number',
+            hintText: 'e.g. C1234567890',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              if (tc.text.trim().isNotEmpty) {
+                setState(() {
+                  _manualTin = tc.text.trim();
+                  _localStatus = 'SAFE'; // Automatically set to SAFE once TIN is provided!
+                });
+              }
+              Navigator.pop(ctx);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: kNavy, foregroundColor: Colors.white),
+            child: const Text('Save'),
+          )
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -14,19 +57,24 @@ class ResultScreen extends StatelessWidget {
     final extracted = data['extracted_data'] as Map<String, dynamic>? ?? {};
     final glm       = data['glm']            as Map<String, dynamic>? ?? {};
 
-    final status     = data['status']          ?? glm['verdict']   ?? 'UNKNOWN';
-    final riskScore  = (data['risk_score']     ?? glm['risk_score'] ?? 0) as num;
+    // Use manual state if available, otherwise fallback to API data
+    final initialStatus = data['status'] ?? glm['verdict'] ?? 'UNKNOWN';
+    final status = _localStatus ?? initialStatus;
+    
+    final initialTin = extracted['tin'] ?? 'N/A';
+    final tin = _manualTin ?? initialTin;
+
+    final riskScore  = (data['risk_score'] ?? glm['risk_score'] ?? 0) as num;
     final confidence = (data['confidence_level'] ?? (glm['confidence'] != null ? (glm['confidence'] as num) / 100 : 0.0)) as num;
 
     final merchantName = extracted['merchant_name'] ?? 'Unknown';
-    final tin          = extracted['tin']          ?? 'N/A';
     final totalAmount  = (extracted['total_amount'] ?? 0) as num;
     final taxAmount    = (extracted['tax_amount']   ?? 0) as num;
     final date         = extracted['date']          ?? 'N/A';
 
-    final aiExplanation     = data['ai_explanation']     ?? glm['summary']  ?? 'N/A';
-    final lhdnReference     = data['lhdn_reference']     ?? (glm['citations'] as List?)?.join(', ')          ?? 'N/A';
-    final recommendation    = data['action_recommendation'] ?? (glm['tax_saving_tips'] as List?)?.first         ?? 'N/A';
+    final aiExplanation     = data['ai_explanation'] ?? glm['summary'] ?? 'N/A';
+    final lhdnReference     = data['lhdn_reference'] ?? (glm['citations'] as List?)?.join(', ') ?? 'N/A';
+    final recommendation    = data['action_recommendation'] ?? (glm['tax_saving_tips'] as List?)?.first ?? 'N/A';
     final impactSaved       = (data['impact_saved'] ?? glm['estimated_fine_rm'] ?? 0) as num;
 
     final tips     = glm['tax_saving_tips'] as List? ?? [];
@@ -38,6 +86,9 @@ class ResultScreen extends StatelessWidget {
     if (status == 'SAFE')   { cardColor = Colors.green;  statusIcon = Icons.check_circle_rounded; }
     if (status == 'REVIEW') { cardColor = Colors.orange; statusIcon = Icons.warning_amber_rounded; }
     if (status == 'DANGER' || status == 'INVALID') { cardColor = Colors.red; statusIcon = Icons.dangerous_rounded; }
+
+    // Logic to show Action Buttons
+    bool needsAction = status == 'REVIEW' || tin == 'NOT_FOUND';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6FAFE),
@@ -51,9 +102,49 @@ class ResultScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-          // ADDED: Chatbar with initial Context
           ChatBar(initialContext: data),
           const SizedBox(height: 16),
+
+          // ── ACTION REQUIRED BANNER ───────────────────────────
+          if (needsAction)
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.orange.shade200)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(children: [
+                    Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                    SizedBox(width: 8),
+                    Text('Action Required', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange, fontSize: 16)),
+                  ]),
+                  const SizedBox(height: 8),
+                  const Text('The AI flagged missing or unclear information. Please verify the TIN manually or scan the receipt again.', style: TextStyle(fontSize: 13, color: Colors.black87)),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => Navigator.pop(context), // Routes back to the upload page
+                          icon: const Icon(Icons.refresh, size: 18),
+                          label: const Text('Scan Again'),
+                        )
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _showTinDialog,
+                          icon: const Icon(Icons.edit, size: 18),
+                          label: const Text('Enter TIN'),
+                          style: ElevatedButton.styleFrom(backgroundColor: kNavy, foregroundColor: Colors.white),
+                        )
+                      ),
+                    ]
+                  )
+                ]
+              )
+            ),
 
           // ── STATUS CARD ──────────────────────────────────────
           Container(
@@ -69,7 +160,7 @@ class ResultScreen extends StatelessWidget {
               Row(children: [
                 _metricTile('Fine Exposure', 'RM ${impactSaved.toStringAsFixed(0)}', Colors.red.shade50, Colors.red),
                 const SizedBox(width: 8),
-                _metricTile('Risk Score', '${riskScore.toInt()}/100', Colors.blue.shade50, Colors.blue),
+                _metricTile('Risk Score', '${status == 'SAFE' ? 0 : riskScore.toInt()}/100', Colors.blue.shade50, Colors.blue),
                 const SizedBox(width: 8),
                 _metricTile('Tax Amount', 'RM ${taxAmount.toStringAsFixed(2)}', Colors.orange.shade50, Colors.orange),
               ]),
@@ -78,10 +169,10 @@ class ResultScreen extends StatelessWidget {
           const SizedBox(height: 16),
 
           // ── EXTRACTED DATA ───────────────────────────────────
-          _sectionCard(icon: Icons.document_scanner, iconColor: kNavy, title: 'Extracted Receipt Data', child: Column(children: [_dataRow('Merchant', merchantName), _divider(), _dataRow('Tax ID (TIN)', tin, valueColor: tin == 'NOT_FOUND' ? Colors.red : Colors.black87), _divider(), _dataRow('Date', date), _divider(), _dataRow('Total Amount', 'RM ${totalAmount.toStringAsFixed(2)}', bold: true)])),
+          _sectionCard(icon: Icons.document_scanner, iconColor: kNavy, title: 'Extracted Receipt Data', child: Column(children: [_dataRow('Merchant', merchantName), _divider(), _dataRow('Tax ID (TIN)', tin, valueColor: tin == 'NOT_FOUND' ? Colors.red : Colors.green.shade700, bold: tin != initialTin), _divider(), _dataRow('Date', date), _divider(), _dataRow('Total Amount', 'RM ${totalAmount.toStringAsFixed(2)}', bold: true)])),
 
           // ── AI EXPLANATION ───────────────────────────────────
-          _sectionCard(icon: Icons.psychology, iconColor: Colors.indigo, title: 'AI Analysis', child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(aiExplanation, style: const TextStyle(fontSize: 13, height: 1.6))])),
+          _sectionCard(icon: Icons.psychology, iconColor: Colors.indigo, title: 'AI Analysis', child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(status == 'SAFE' ? 'TIN has been verified. Transaction meets LHDN E-Invoicing requirements.' : aiExplanation, style: const TextStyle(fontSize: 13, height: 1.6))])),
 
           // ── LHDN CITATIONS ───────────────────────────────────
           _sectionCard(icon: Icons.gavel_rounded, iconColor: Colors.indigo, title: 'LHDN Citations', child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: citations.isNotEmpty ? citations.map((c) => _bulletPoint(c.toString(), Colors.indigo)).toList() : [Text(lhdnReference, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueAccent, fontSize: 13))])),
