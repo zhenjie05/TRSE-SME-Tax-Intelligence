@@ -9,7 +9,7 @@ TRSE SME Tax Intelligence is an AI-powered financial compliance dashboard built 
 
 All required evaluation artifacts for the KitaHack 2026 submission are accessible below:
 
-* **🎥 Pitching Video:** [[INSERT_YOUR_GOOGLE_DRIVE_VIDEO_LINK_HERE](https://drive.google.com/drive/folders/1g5bxIEhfBQm3A86qO_PFlwbsEbHfadOO?usp=sharing)] 
+* **🎥 Pitching Video:** [[TRSE_PitchingVideo](https://drive.google.com/drive/folders/1g5bxIEhfBQm3A86qO_PFlwbsEbHfadOO?usp=sharing)] 
 * **📄 System Documentation:** The three required project documents, including our comprehensive Quality Assurance Testing Documentation (QATD), are located in the `/docs` folder of this repository.
 
 ---
