@@ -5,7 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 class ApiService {
   static const String _base = 'http://127.0.0.1:8000';
-  static const bool useMockData = true; // FLIP THIS TO FALSE WHEN BACKEND IS READY
+  static const bool useMockData = false; // FLIP THIS TO FALSE WHEN BACKEND IS READY
 
   static Future<Map<String, dynamic>?> analyzeReceipt(XFile imageFile) async {
     if(useMockData) {
