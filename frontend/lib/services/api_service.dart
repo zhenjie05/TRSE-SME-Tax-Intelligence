@@ -130,19 +130,20 @@ class ApiService {
     } else {
       try {
         var response = await http.post(
-          Uri.parse('$_base/chat'),
+          Uri.parse('$_base/ai-chat'), // FIXED: Added 'ai-' to match backend
           headers: {'Content-Type': 'application/json'},
           body: json.encode({
-            'message': message,
-            'context': contextData, // Pass the analysis result as context
+            'user_query': message, // FIXED: Changed 'message' to 'user_query'
+            // We removed 'context' from the body because your Python backend 
+            // is designed to fetch the context directly from the Supabase database!
           }),
         );
         if (response.statusCode == 200) {
-          return json.decode(response.body)['response'];
+          return json.decode(response.body)['reply']; // FIXED: Changed 'response' to 'reply'
         }
-        return "Sorry, I couldn't reach the AI engine.";
+        return "Sorry, I couldn't reach the AI engine. Error: ${response.statusCode}";
       } catch (e) {
-        return "Connection error. Please try again.";
+        return "Connection error. Please try again. Error: $e";
       }
     }
   }
