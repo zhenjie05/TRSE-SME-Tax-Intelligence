@@ -14,7 +14,7 @@ load_dotenv()
 
 # 1. Initialize Gemini
 # 1. Initialize Gemini
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+genai.configure(api_key="AIzaSyDE33-GUqRADSAp0BzVASbVpQCRuyWfsb4")
 
 # 2. Initialize Supabase
 supabase_url = os.environ.get("SUPABASE_URL")
