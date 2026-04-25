@@ -40,26 +40,39 @@ class ChatRequest(BaseModel):
 @app.post("/upload")
 async def upload_receipt(file: UploadFile = File(...)):
     try:
-        # STAGE 1: Load Image
-        image_bytes = await file.read()
-        img = Image.open(io.BytesIO(image_bytes))
+        # STAGE 1: Load File
+        file_bytes = await file.read()
+        mime_type = file.content_type
 
-        # Resize only if it's massively huge to save bandwidth
-        if img.width > 2000:
-            img = img.resize((2000, int(img.height * 2000 / img.width)))
+        # STAGE 2: Prepare Document for Gemini
+        document_part = None
+        
+        if mime_type.startswith("image/"):
+            # It's an image, use PIL to safely resize if needed
+            img = Image.open(io.BytesIO(file_bytes))
+            if img.width > 2000:
+                img = img.resize((2000, int(img.height * 2000 / img.width)))
+            document_part = img
+        elif mime_type == "application/pdf":
+            # It's a PDF, Gemini takes the raw bytes natively!
+            document_part = {
+                "mime_type": "application/pdf",
+                "data": file_bytes
+            }
+        else:
+            raise HTTPException(status_code=400, detail="Only Images and PDFs are supported.")
 
-        # STAGE 2: Gemini Vision Engine
         model = genai.GenerativeModel('gemini-2.5-flash')
         
         prompt = """
-        You are a professional LHDN Tax Auditor. Analyze this Malaysian receipt.
+        You are a professional LHDN Tax Auditor. Analyze this Malaysian receipt or invoice document.
         Extract the data and return ONLY a strict JSON object. Do not use markdown blocks like ```json.
-
+        
         INSTRUCTIONS:
         1. TIN: Look for TIN starting with T, C, or G followed by digits. If missing, put "NOT_FOUND".
         2. DATE: Format as DD/MM/YYYY.
         3. RISK SCORE: No TIN = +40 risk, No Date = +20 risk.
-
+        
         REQUIRED FORMAT:
         {
             "status": "SAFE" | "REVIEW" | "DANGER",
@@ -77,8 +90,9 @@ async def upload_receipt(file: UploadFile = File(...)):
         }
         """
 
-        print("📸 Image loaded. Sending to Gemini...")
-        response = await model.generate_content_async([prompt, img])
+        print(f"📸 Document loaded ({mime_type}). Sending to Gemini...")
+        # Send the document_part (either PIL Image or PDF Dict) to Gemini
+        response = await model.generate_content_async([prompt, document_part])
         print("✅ Gemini finished thinking!")
         
         ai_response_text = response.text.strip()

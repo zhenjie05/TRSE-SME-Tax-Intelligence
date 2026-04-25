@@ -28,14 +28,20 @@ class ApiService {
         "impact_saved": 3480.00
       };
     } else {
-      try {
+try {
         var request = http.MultipartRequest('POST', Uri.parse('$_base/upload'));
         var bytes = await imageFile.readAsBytes();
+        
+        // ADDED: Check if it's a PDF based on the file extension
+        bool isPdf = imageFile.name.toLowerCase().endsWith('.pdf');
+        
         request.files.add(http.MultipartFile.fromBytes(
           'file', bytes,
-          filename: imageFile.name.isNotEmpty ? imageFile.name : 'receipt.jpg',
-          contentType: MediaType('image', 'jpeg'),
+          filename: imageFile.name.isNotEmpty ? imageFile.name : (isPdf ? 'document.pdf' : 'receipt.jpg'),
+          // ADDED: Dynamically assign the correct content type!
+          contentType: MediaType(isPdf ? 'application' : 'image', isPdf ? 'pdf' : 'jpeg'),
         ));
+        
         var response = await request.send();
         if (response.statusCode == 200) {
           var body = await response.stream.bytesToString();
@@ -47,8 +53,7 @@ class ApiService {
         return null;
       }     
     }  
-  } 
-
+  }
   static Future<List<dynamic>?> fetchAuditHistory() async {
     if(useMockData) {
       await Future.delayed(const Duration(seconds: 1));
