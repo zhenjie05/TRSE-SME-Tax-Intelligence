@@ -1,7 +1,9 @@
+import 'history_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter/foundation.dart'; // Needed to check if running on Web
 import 'dart:io';
 import '../services/api_service.dart';
 import '../widget/chatbar.dart'; // Added Import
@@ -44,6 +46,8 @@ class _UploadScreenState extends State<UploadScreen> {
   Future<void> _analyze() async {
     if (_selectedImage == null) return;
     setState(() => _isLoading = true);
+    
+    // Shoot the image to the Python backend
     final result = await ApiService.analyzeReceipt(_selectedImage!);
     setState(() => _isLoading = false);
     if (!mounted) return;

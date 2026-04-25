@@ -10,6 +10,7 @@ import google.generativeai as genai
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
+# Load environment variables from .env file
 load_dotenv()
 
 # 1. Initialize Gemini
