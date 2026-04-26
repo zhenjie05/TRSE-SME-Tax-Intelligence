@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
 import '../widget/chatbar.dart';
+import 'dart:async';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -26,17 +27,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _tipsFuture = ApiService.getDashboardTips();
   }
 
+  Timer? _debounce;
+
   Future<void> _calculateTax(String value) async {
-    if (value.isEmpty) {
-      setState(() => _taxDue = 0.0);
-      return;
-    }
-    setState(() => _isCalculatingTax = true);
-    double income = double.tryParse(value) ?? 0.0;
-    double tax = await ApiService.calculateTaxes(income);
-    setState(() {
-      _taxDue = tax;
-      _isCalculatingTax = false;
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    
+    _debounce = Timer(const Duration(milliseconds: 500), () async {
+      if (value.isEmpty) {
+        setState(() => _taxDue = 0.0);
+        return;
+      }
+      setState(() => _isCalculatingTax = true);
+      double income = double.tryParse(value) ?? 0.0;
+      double tax = await ApiService.calculateTaxes(income);
+      setState(() {
+        _taxDue = tax;
+        _isCalculatingTax = false;
+      });
     });
   }
 

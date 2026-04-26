@@ -91,21 +91,31 @@ try {
   }
 
   // Dynamic Tax Calculation Endpoint
-  static Future<double> calculateTaxes(double annualIncome) async {
+static Future<double> calculateTaxes(double annualIncome) async {
     if (useMockData) {
-      await Future.delayed(const Duration(milliseconds: 800));
-      // Basic mock Malaysian tax bracket calculation
-      if (annualIncome <= 35000) return 0;
-      if (annualIncome <= 100000) return annualIncome * 0.11;
-      return annualIncome * 0.24; 
+      // Keep this for offline testing, but updated to progressive logic
+      if (annualIncome <= 5000) return 0;
+      if (annualIncome <= 20000) return (annualIncome - 5000) * 0.01;
+      if (annualIncome <= 35000) return 150 + (annualIncome - 20000) * 0.03;
+      return 600 + (annualIncome - 35000) * 0.06; // Simplification for mock
     } else {
-      // Future backend connection
-      // var response = await http.post('$_base/calculate_tax', body: {'income': annualIncome});
-      return 0.0;
+      try {
+        // FIXED: Calling the correct backend route with parameters
+        var response = await http.get(Uri.parse('$_base/calculate-tax?income=$annualIncome'));
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          return (data['taxes_to_pay'] as num).toDouble();
+        }
+        return 0.0;
+      } catch (e) {
+        print("Tax calculation error: $e");
+        return 0.0;
+      }
     }
   }
 
   // Dynamic Tax Tips Endpoint
+// Dynamic Tax Tips Endpoint
   static Future<List<String>> getDashboardTips() async {
     if (useMockData) {
       await Future.delayed(const Duration(seconds: 1));
@@ -115,8 +125,18 @@ try {
         "Consider consolidating monthly utility bills under the e-Invoice exemption rule."
       ];
     } else {
-      // var response = await http.get('$_base/tips');
-      return [];
+      try {
+        var response = await http.get(Uri.parse('$_base/tips'));
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          // Convert the dynamic list to a List<String>
+          return List<String>.from(data['tips']); 
+        }
+        return ["Keep track of your receipts for LHDN compliance."]; // Fallback
+      } catch (e) {
+        print("Error fetching tips: $e");
+        return ["Unable to load AI recommendations at this time."];
+      }
     }
   }
 

@@ -207,3 +207,68 @@ async def get_audit_history():
     except Exception as e:
         print(f"Database Error in /logs: {e}")
         return {"status": "error", "message": f"Database Error: {str(e)}"}
+    
+@app.get("/calculate-tax")
+async def calculate_tax(income: float):
+    # Malaysia Progressive Tax Brackets (YA 2024)
+    tax = 0.0
+    
+    if income <= 5000:
+        tax = 0
+    elif income <= 20000:
+        tax = (income - 5000) * 0.01
+    elif income <= 35000:
+        tax = 150 + (income - 20000) * 0.03
+    elif income <= 50000:
+        tax = 600 + (income - 35000) * 0.06
+    elif income <= 70000:
+        tax = 1500 + (income - 50000) * 0.11
+    elif income <= 100000:
+        tax = 3700 + (income - 70000) * 0.19
+    else:
+        # Higher brackets for high earners
+        tax = 9400 + (income - 100000) * 0.25
+
+    return {"taxes_to_pay": tax}
+
+@app.get("/tips")
+async def get_dashboard_tips():
+    try:
+        # 1. Grab the latest 3 transactions to give the AI some context
+        response = supabase.table("transaction_logs").select("status, merchant_name").order("created_at", desc=True).limit(3).execute()
+        
+        context = ""
+        if response.data:
+            scans = ", ".join([f"{r['merchant_name']} ({r['status']})" for r in response.data])
+            context = f"The user recently scanned these receipts: {scans}."
+        
+        # 2. Ask Gemini to generate 3 contextual tips
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        prompt = f"""
+        You are a Malaysian LHDN Tax Advisor. 
+        {context}
+        Provide exactly 3 short, actionable tax-saving or compliance tips for an SME business regarding the upcoming 2026 e-Invoicing mandate.
+        Return ONLY a raw JSON array of 3 strings. Example: ["Tip 1", "Tip 2", "Tip 3"]. Do not use markdown blocks.
+        """
+        
+        ai_response = await model.generate_content_async(prompt)
+        tips_text = ai_response.text.strip()
+        
+        # Clean up formatting if Gemini includes markdown
+        if "```json" in tips_text:
+            tips_text = tips_text.split("```json")[1]
+        if "```" in tips_text:
+            tips_text = tips_text.split("```")[0]
+            
+        tips_list = json.loads(tips_text.strip())
+        
+        return {"tips": tips_list}
+        
+    except Exception as e:
+        print(f"Error generating tips: {e}")
+        # Fallback static tips just in case the AI fails
+        return {"tips": [
+            "E-Invoicing becomes mandatory for all taxpayers by July 2026.",
+            "Ensure all capital expenditures above RM10,000 have verified TINs.",
+            "Regularly audit receipts for missing dates or TINs to lower your risk score."
+        ]}
