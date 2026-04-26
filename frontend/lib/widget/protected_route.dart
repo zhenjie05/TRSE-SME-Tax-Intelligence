@@ -16,7 +16,6 @@ class ProtectedRoute extends StatelessWidget {
     if (user == null) {
       print('Redirecting to auth page. User is null.'); // Log redirection reason
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        // Change '/auth' to '/'
         Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false); 
       });
       

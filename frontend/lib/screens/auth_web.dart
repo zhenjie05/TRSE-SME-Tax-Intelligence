@@ -51,6 +51,8 @@ class _AuthWebState extends State<AuthWeb> {
     }
   }
 
+  static const googleIconUrl = 'https://img.icons8.com/?size=100&id=17949&format=png&color=000000';
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -127,7 +129,7 @@ class _AuthWebState extends State<AuthWeb> {
                       const SizedBox(height: 24),
                       OutlinedButton.icon(
                         onPressed: _isLoading ? null : _googleSignIn,
-                        icon: Image.network('https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg.png', height: 20),
+                        icon: Image.network(googleIconUrl, height: 20),
                         label: const Text('Continue with Google', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 20),

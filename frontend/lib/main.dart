@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'responsive_layout.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 // Mobile Imports
 import 'screens/upload_screen.dart';
@@ -8,6 +9,7 @@ import 'screens/result_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/auth_gate.dart';
 
 // Web Imports
 import 'screens/dashboard_web.dart';
@@ -18,7 +20,16 @@ import 'screens/settings_web.dart';
 import 'screens/chat_screen.dart';
 import 'screens/chat_web.dart';
 
-void main() {
+void main() async{
+  // Ensure Flutter bindings are initialized before calling async methods
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Supabase (Replace with your actual URL and Anon Key from Supabase Dashboard)
+  await Supabase.initialize(
+    url: 'SUPABASE_URL',
+    anonKey: 'SUPABASE_ANON_KEY',
+  );
+
   runApp(const TSREApp());
 }
 
@@ -37,7 +48,7 @@ class TSREApp extends StatelessWidget {
       ),
       initialRoute: '/',
       routes: {
-        '/': (context) => const MainLayout(),
+        '/': (context) => const AuthGate(),
         // Result Screen is also responsive!
         '/result': (context) => const ResponsiveLayout(
               mobileView: ResultScreen(),

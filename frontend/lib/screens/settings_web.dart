@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SettingsWeb extends StatelessWidget {
   const SettingsWeb({super.key});
@@ -19,6 +20,13 @@ class SettingsWeb extends StatelessWidget {
             _tile(Icons.notifications_outlined, 'Notifications', 'Compliance alerts'),
             _tile(Icons.lock_outline, 'Privacy', 'Data handling preferences'),
             _tile(Icons.info_outline, 'About TSRE', 'Version 1.0.0 — UM Hackathon 2026'),
+
+            GestureDetector(
+              onTap: () async {
+                await Supabase.instance.client.auth.signOut();
+              },
+              child: _tile(Icons.logout, 'Log Out', 'Sign out of your account'),
+            ),
           ]),
         ),
       ),
