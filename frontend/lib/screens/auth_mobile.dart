@@ -47,10 +47,7 @@ class _AuthMobileState extends State<AuthMobile> {
   // ── NEW: GOOGLE SIGN IN FUNCTION ──
   Future<void> _googleSignIn() async {
     try {
-      await Supabase.instance.client.auth.signInWithOAuth(
-        OAuthProvider.google,
-        redirectTo: 'tsre://login-callback', 
-      );
+      await Supabase.instance.client.auth.signInWithOAuth(OAuthProvider.google);
     } catch (error) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString()), backgroundColor: Colors.red));
     }
