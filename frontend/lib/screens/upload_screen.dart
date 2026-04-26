@@ -1,13 +1,10 @@
-import 'history_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:file_picker/file_picker.dart';// Needed to check if running on Web
 import 'dart:io';
 import '../services/api_service.dart';
 import '../widget/chatbar.dart'; // Added Import
-
 
 class UploadScreen extends StatefulWidget {
   const UploadScreen({super.key});
@@ -39,29 +36,14 @@ class _UploadScreenState extends State<UploadScreen> {
     }
   }
 
-Future<void> _pickFromGallery() async {
-    FilePickerResult? result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'], // Now accepts PDF!
-    );
-
-    if (result != null) {
-      final file = result.files.single;
-      setState(() {
-        if (kIsWeb) {
-          _selectedImage = XFile.fromData(file.bytes!, name: file.name);
-        } else {
-          _selectedImage = XFile(file.path!, name: file.name);
-        }
-      });
-    }
+  Future<void> _pickFromGallery() async {
+    final picked = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (picked != null) setState(() => _selectedImage = picked);
   }
 
   Future<void> _analyze() async {
     if (_selectedImage == null) return;
     setState(() => _isLoading = true);
-    
-    // Shoot the image to the Python backend
     final result = await ApiService.analyzeReceipt(_selectedImage!);
     setState(() => _isLoading = false);
     if (!mounted) return;
@@ -158,21 +140,12 @@ Future<void> _pickFromGallery() async {
     return Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: kNavy.withOpacity(0.05), borderRadius: BorderRadius.circular(14)), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: const [Icon(Icons.verified_user, color: kNavy, size: 20), SizedBox(width: 12), Expanded(child: Text('Secure OCR processing: All documents are encrypted and PII is removed before AI analysis.', style: TextStyle(fontSize: 11, height: 1.5, fontWeight: FontWeight.w600, color: kNavy)))]));
   }
 
-Widget _buildImagePreview() {
-    bool isPdf = _selectedImage!.name.toLowerCase().endsWith('.pdf');
-
+  Widget _buildImagePreview() {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('Selected Document', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold, fontSize: 15, color: kNavy)),
+      Text('Selected Receipt', style: GoogleFonts.publicSans(fontWeight: FontWeight.bold, fontSize: 15, color: kNavy)),
       const SizedBox(height: 10),
       Stack(children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(16), 
-          child: isPdf 
-              // Show a PDF Icon box if it's a PDF
-              ? Container(height: 200, width: double.infinity, color: Colors.grey.shade200, child: const Icon(Icons.picture_as_pdf, size: 64, color: Colors.redAccent))
-              // Otherwise render the image as normal
-              : (kIsWeb ? Image.network(_selectedImage!.path, height: 200, width: double.infinity, fit: BoxFit.cover) : Image.file(File(_selectedImage!.path), height: 200, width: double.infinity, fit: BoxFit.cover))
-        ),
+        ClipRRect(borderRadius: BorderRadius.circular(16), child: kIsWeb ? Image.network(_selectedImage!.path, height: 200, width: double.infinity, fit: BoxFit.cover) : Image.file(File(_selectedImage!.path), height: 200, width: double.infinity, fit: BoxFit.cover)),
         Positioned(top: 8, right: 8, child: GestureDetector(onTap: () => setState(() => _selectedImage = null), child: Container(padding: const EdgeInsets.all(6), decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle), child: const Icon(Icons.close, color: Colors.white, size: 16)))),
         Positioned(bottom: 8, left: 8, child: Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(8)), child: Text(_selectedImage!.name.length > 25 ? '${_selectedImage!.name.substring(0, 25)}...' : _selectedImage!.name, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)))),
       ]),
